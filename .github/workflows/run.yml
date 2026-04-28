@@ -2,8 +2,8 @@ name: 监听
 
 on:
   schedule:
-    # 每2分钟一次
-    - cron: '*/2 * * * *'
+    # 每小时一次（整点执行）
+    - cron: '0 * * * *'
   workflow_dispatch:
 
 jobs:
