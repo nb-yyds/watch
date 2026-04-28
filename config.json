@@ -1,5 +1,5 @@
 {
-  "priceLimit": 1500,
+  "priceLimit": 1000,
   "requestTimeoutMs": 20000,
   "airlineMapPath": "./hkgs.json",
   "request": {
