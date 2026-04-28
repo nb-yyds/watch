@@ -1,0 +1,30 @@
+name: 监听
+
+on:
+  schedule:
+    # 每5分钟一次
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@main
+      - name: Setup Node.js environment
+        uses: actions/setup-node@main
+        with:
+          node-version: 22
+        
+      - name: 初始化-安装node
+        id: build
+        run: |
+          npm install
+
+      - name: 开始
+        id: run
+        env:
+          CONFIG: ${{ secrets.CONFIG }}
+        run: |
+          node index.js
