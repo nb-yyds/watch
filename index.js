@@ -5,7 +5,6 @@ const axios = require("axios");
 const { sendMail } = require("./mailer");
 
 const APP_CONFIG_PATH = path.join(__dirname, "config.json");
-
 async function loadJson(filePath) {
   const content = await fs.readFile(filePath, "utf8");
   return JSON.parse(content);
@@ -207,7 +206,13 @@ function defaultFieldMappings() {
       "airways",
       "alc",
     ],
-    airlineCode: ["airlineCode", "carrierCode", "airlineShortCode", "alc"],
+    airlineCode: [
+      "carrierAirlineCode",
+      "airlineCode",
+      "carrierCode",
+      "airlineShortCode",
+      "alc",
+    ],
     flightNumber: ["carrier", "flightNumber", "flightNo", "flightNum", "fn"],
     departureTime: [
       "depTime",
@@ -304,6 +309,20 @@ function formatDuration(durationMinutes) {
   return `${hours}小时${minutes}分钟`;
 }
 
+function normalizeAirlineCodes(airlineCodes) {
+  if (!Array.isArray(airlineCodes)) {
+    return [];
+  }
+
+  return [
+    ...new Set(
+      airlineCodes
+        .map((code) => (typeof code === "string" ? code.trim().toUpperCase() : ""))
+        .filter(Boolean)
+    ),
+  ];
+}
+
 function normalizeFlight(item, airlineMap, fieldMappings) {
   const directPrice = parseNumber(item?.bestPrice ?? item?.cabin?.bestPrice);
   const price = directPrice ?? parseNumber(findValueDeep(item, fieldMappings.price));
@@ -312,11 +331,12 @@ function normalizeFlight(item, airlineMap, fieldMappings) {
   }
 
   const directAirline = item?.carrierAirlineName;
+  const directAirlineCode = item?.carrierAirlineCode;
   const directFlightNumber = item?.carrier || item?.flightNo;
   const directDepartureTime = item?.depTime;
   const directArrivalTime = item?.arrTime;
 
-  const airlineCode = findValueDeep(item, fieldMappings.airlineCode);
+  const airlineCode = directAirlineCode || findValueDeep(item, fieldMappings.airlineCode);
   const airline =
     directAirline || findValueDeep(item, fieldMappings.airline) ||
     airlineMap[airlineCode] ||
@@ -328,6 +348,7 @@ function normalizeFlight(item, airlineMap, fieldMappings) {
 
   return {
     airline,
+    airlineCode,
     flightNumber,
     departureTime,
     arrivalTime,
@@ -388,7 +409,16 @@ function extractFlightList(payload, airlineMap, responseConfig) {
   return bestMatch;
 }
 
-function filterFlightsByPrice(flights, priceLimit) {
+function getAllowedAirlineCodes(route) {
+  const routeAirlineCodes = normalizeAirlineCodes(route?.airlineCodes);
+  if (routeAirlineCodes.length > 0) {
+    return new Set(routeAirlineCodes);
+  }
+
+  return null;
+}
+
+function filterFlightsByPrice(flights, priceLimit, allowedAirlineCodes) {
   return flights.filter((flight) => {
     const durationMinutes = calculateFlightDurationMinutes(
       flight.departureTime,
@@ -396,6 +426,7 @@ function filterFlightsByPrice(flights, priceLimit) {
     );
 
     return (
+      (!allowedAirlineCodes || allowedAirlineCodes.has(flight.airlineCode)) &&
       flight.price < priceLimit &&
       Number.isFinite(durationMinutes) &&
       durationMinutes < 180
@@ -561,6 +592,14 @@ function validateAppConfig(config) {
     throw new Error("缺少 routes 配置，至少需要一条航线。");
   }
 
+  for (const route of config.routes) {
+    if (route?.airlineCodes != null && !Array.isArray(route.airlineCodes)) {
+      throw new Error(
+        `Route ${route.depCity || ""} -> ${route.arrCity || ""} airlineCodes must be an array`
+      );
+    }
+  }
+
   if (!config.mail || !isPlainObject(config.mail)) {
     throw new Error("缺少 mail 配置。");
   }
@@ -612,11 +651,16 @@ async function main(appConfig) {
   for (const route of appConfig.routes) {
     const routeMailConfig = buildRouteMailConfig(appConfig.mail, route);
     const routePriceLimit = getRoutePriceLimit(route, appConfig);
+    const allowedAirlineCodes = getAllowedAirlineCodes(route);
     const priceLimit = routePriceLimit;
 
     try {
       const flights = await queryFlights(route, appConfig, airlineMap);
-      const matchedFlights = filterFlightsByPrice(flights, routePriceLimit);
+      const matchedFlights = filterFlightsByPrice(
+        flights,
+        routePriceLimit,
+        allowedAirlineCodes
+      );
 
       if (matchedFlights.length === 0) {
         console.log(
