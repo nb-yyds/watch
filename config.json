@@ -3,8 +3,8 @@
   "requestTimeoutMs": 20000,
   "airlineMapPath": "./hkgs.json",
   "request": {
-    "url": "https://sjipiao.fliggy.com/searchow/search.htm?_ksTS=1777362423192_158&callback=jsonp159&tripType=0",
-    "callbackName": "jsonp159",
+    "url": "https://sjipiao.fliggy.com/searchow/search.htm?_ksTS=1779968468253_159&callback=jsonp160&tripType=0",
+    "callbackName": "jsonp160",
     "headers": {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
       "Referer": "https://sjipiao.fliggy.com/flight_search_result.htm?searchBy=&ttid=&tripType=0",
