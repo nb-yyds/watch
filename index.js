@@ -434,6 +434,18 @@ function filterFlightsByPrice(flights, priceLimit, allowedAirlineCodes) {
   });
 }
 
+function deduplicateFlights(flights) {
+  const map = new Map();
+  for (const flight of flights) {
+    const key = `${flight.flightNumber}|${flight.departureTime}|${flight.arrivalTime}`;
+    const existing = map.get(key);
+    if (!existing || flight.price < existing.price) {
+      map.set(key, flight);
+    }
+  }
+  return [...map.values()];
+}
+
 function renderHtmlTable(route, rows, priceLimit) {
   const caption = `${route.depCityName} -> ${route.arrCityName} (${route.depDate})`;
   const body = rows
@@ -656,11 +668,11 @@ async function main(appConfig) {
 
     try {
       const flights = await queryFlights(route, appConfig, airlineMap);
-      const matchedFlights = filterFlightsByPrice(
+      const matchedFlights = deduplicateFlights(filterFlightsByPrice(
         flights,
         routePriceLimit,
         allowedAirlineCodes
-      );
+      ));
 
       if (matchedFlights.length === 0) {
         console.log(

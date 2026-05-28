@@ -10,7 +10,7 @@ jobs:
   repo-sync:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'
+    if: github.event.workflow_run.conclusion == 'failure' || github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v2
         with:
@@ -18,13 +18,13 @@ jobs:
       
       - name: Update README
         run: |
-          echo "- Auto Sign-in run successful on $(date)" >> README.md
+          echo "- Auto Sign-in run failed on $(TZ=Asia/Shanghai date '+%Y-%m-%d %H:%M:%S')" >> README.md
 
       - name: Commit and push changes
         run: |
           git config --global user.name 'GitHub Action'
           git config --global user.email 'action@github.com'
           git add README.md
-          git commit -m "Update README with successful run"
+          git commit -m "Update README with failed run"
           git push
           
