@@ -163,22 +163,8 @@ function unwrapResponsePayload(rawData, callbackName) {
     throw new Error("接口返回的是风控或跳转页面，不是正常的 JSONP 航班数据。");
   }
 
-  // Try callback-specific pattern first
-  const explicitPattern = callbackName
-    ? new RegExp(
-        `^${callbackName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\((.*)\\);?$`,
-        "s"
-      )
-    : null;
-
-  if (explicitPattern) {
-    const explicitMatch = trimmed.match(explicitPattern);
-    if (explicitMatch) {
-      return JSON.parse(explicitMatch[1]);
-    }
-  }
-
-  // Fallback: brace-counting to extract JSON from JSONP wrapper
+  // Brace-counting: find the outermost {...} block, then try JSON.parse,
+  // falling back to Function eval for non-standard JSON (unquoted numeric keys, etc.)
   const firstBrace = trimmed.indexOf("{");
   if (firstBrace !== -1) {
     let depth = 0;
@@ -191,8 +177,6 @@ function unwrapResponsePayload(rawData, callbackName) {
           try {
             return JSON.parse(jsonStr);
           } catch {
-            // JSON contains non-standard syntax (e.g. unquoted numeric keys),
-            // fall through to Function eval which handles JS object notation
             return new Function("return (" + jsonStr + ")")();
           }
         }
@@ -605,7 +589,7 @@ async function queryFlights(route, appConfig, airlineMap) {
   };
 
   const baseUrl = appConfig.request.url.split('?')[0];
-  const response = await axios.get(baseUrl, {
+  const axiosConfig = {
     params,
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36',
@@ -613,7 +597,15 @@ async function queryFlights(route, appConfig, airlineMap) {
     },
     timeout: Number(appConfig.requestTimeoutMs ?? 20000),
     responseType: "text",
-  });
+  };
+
+  const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+  if (proxyUrl) {
+    const url = new URL(proxyUrl);
+    axiosConfig.proxy = { host: url.hostname, port: Number(url.port), protocol: url.protocol.slice(0, -1) };
+  }
+
+  const response = await axios.get(baseUrl, axiosConfig);
 
   const payload = unwrapResponsePayload(
     response.data,

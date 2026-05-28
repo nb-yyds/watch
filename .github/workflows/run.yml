@@ -26,5 +26,6 @@ jobs:
         id: run
         env:
           CONFIG: ${{ secrets.CONFIG }}
+          HTTPS_PROXY: ${{ secrets.HTTPS_PROXY }}
         run: |
           node index.js
