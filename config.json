@@ -3,13 +3,7 @@
   "requestTimeoutMs": 20000,
   "airlineMapPath": "./hkgs.json",
   "request": {
-    "url": "https://sjipiao.fliggy.com/searchow/search.htm?_ksTS=1779968468253_159&callback=jsonp160&tripType=0",
-    "callbackName": "jsonp160",
-    "headers": {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
-      "Referer": "https://sjipiao.fliggy.com/flight_search_result.htm?searchBy=&ttid=&tripType=0",
-      "Cookie": "dnk=; t=5cbe72828cd1fdfeb8d10503942c659f; lgc=; sn=; _tb_token_=773eb0753dbe1; cookie2=1966d7fdb288ad639eff30d56a4ef261; _nk_=; cna=9xafInn2UU0CASeQlifROgqQ; XSRF-TOKEN=2cf936dd-3a37-422e-83fa-7310889cec4a; mtop_partitioned_detect=1; _m_h5_tk=40ebf3f0d90ab4b3428db93b8ff12dbb_1779978136677; _m_h5_tk_enc=9d54e1947aabdeab9560ec57adf109a4; xlly_s=1; JSESSIONID=B1E4DCACCE12C03F68057C9A06AF7427; tfstk=g5LqmWMbXq34AcDHTBbZYGMAKK_AJNkQoF61sCAGGtXchhgwsK9NhGc9CVywKISMlZOXUlJJ3K91CqBg7dO6ldgAfPWMOL41jF667SLyLPajHmdg7N_idvgIRIdfWNDILdAxFtC9ZOc5mr9qaE_idvg7V7jxhNA_Qnx5qQXR_r4cSd2ur6XliO4MITjlt6wcSNviaTfNgoVcnNbuZ1BlINbMIQcP6TfcSNvMZb5tM1d9GDBVmjsBPBvxE_IVKIXz7ILPiirviTzgSU-c0941UP4MzsAOZhWQ8c6HvtsCQL07uNRl_LSB0vz2QCApjg8anj9HEhJGw3Hab9-MGHKG4j0DaZW2LUI8so72jKLNDnPt9QbDeHBdm0HRaETCb9IzExAWatjebKM8StteZLSBP8aC-Hpy7Mbh4IwOZMZMWnygbifRa9GraDB1_XuK2PvgXlIor_WIT8ETXifRa9GralEOqb5PdXyR."
-    }
+    "url": "https://sjipiao.fliggy.com/searchow/search.htm"
   },
   "response": {
     "flightListPaths": [],

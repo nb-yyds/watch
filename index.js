@@ -4,9 +4,6 @@ const axios = require("axios");
 
 const { sendMail } = require("./mailer");
 
-// 复制下面的链接，浏览器打开刷新，更新接口
-// https://sjipiao.fliggy.com/searchow/search.htm?_ksTS=1779968468253_159&callback=jsonp160&tripType=0&depCity=KMG&depCityName=%E6%98%86%E6%98%8E&arrCity=CAN&arrCityName=%E5%B9%BF%E5%B7%9E&depDate=2026-06-18&searchSource=99&sKey=&qid=&needMemberPrice=true&_input_charset=utf-8&ua=090%23qCQXDTX2X2XXPXi0XXXXXQkpOz7yT99GzDVlO%2Bg3AGBpfrxbhnU5%2BDEIIrg9H9hG3vQXi3e7PUXtXvXQsVW8ZxDiXXF2mp%2F9vQjBXvXvM%2BeJ9ldaKbHa9ECSU5VbImQiXXxlVf0IPaR3XvXP4aabUg0yzSvNXvXnh9TXXP73OzueGQiGHYVbk%2BhnOQp3HogAh9T4vY73I05eGrirHYVyGv%3D%3D&itemId=&openCb=false
-
 const APP_CONFIG_PATH = path.join(__dirname, "config.json");
 async function loadJson(filePath) {
   const content = await fs.readFile(filePath, "utf8");
@@ -166,6 +163,7 @@ function unwrapResponsePayload(rawData, callbackName) {
     throw new Error("接口返回的是风控或跳转页面，不是正常的 JSONP 航班数据。");
   }
 
+  // Try callback-specific pattern first
   const explicitPattern = callbackName
     ? new RegExp(
         `^${callbackName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\((.*)\\);?$`,
@@ -180,9 +178,26 @@ function unwrapResponsePayload(rawData, callbackName) {
     }
   }
 
-  const genericMatch = trimmed.match(/^[\w$.]+\((.*)\);?$/s);
-  if (genericMatch) {
-    return JSON.parse(genericMatch[1]);
+  // Fallback: brace-counting to extract JSON from JSONP wrapper
+  const firstBrace = trimmed.indexOf("{");
+  if (firstBrace !== -1) {
+    let depth = 0;
+    for (let i = firstBrace; i < trimmed.length; i++) {
+      if (trimmed[i] === "{") depth++;
+      if (trimmed[i] === "}") {
+        depth--;
+        if (depth === 0) {
+          const jsonStr = trimmed.substring(firstBrace, i + 1);
+          try {
+            return JSON.parse(jsonStr);
+          } catch {
+            // JSON contains non-standard syntax (e.g. unquoted numeric keys),
+            // fall through to Function eval which handles JS object notation
+            return new Function("return (" + jsonStr + ")")();
+          }
+        }
+      }
+    }
   }
 
   throw new Error("接口没有返回合法的 JSONP 数据。");
@@ -250,67 +265,6 @@ function mergeFieldMappings(defaultMappings, customMappings) {
   return mergedMappings;
 }
 
-function parseClockTimeToMinutes(value) {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const timeMatches = [...value.trim().matchAll(/(\d{1,2}):(\d{2})/g)];
-  const match = timeMatches.length > 0 ? timeMatches[timeMatches.length - 1] : null;
-  if (!match) {
-    return null;
-  }
-
-  const hours = Number(match[1]);
-  const minutes = Number(match[2]);
-  if (
-    !Number.isInteger(hours) ||
-    !Number.isInteger(minutes) ||
-    hours < 0 ||
-    hours > 23 ||
-    minutes < 0 ||
-    minutes > 59
-  ) {
-    return null;
-  }
-
-  return hours * 60 + minutes;
-}
-
-function calculateFlightDurationMinutes(departureTime, arrivalTime) {
-  const departureMinutes = parseClockTimeToMinutes(departureTime);
-  const arrivalMinutes = parseClockTimeToMinutes(arrivalTime);
-
-  if (departureMinutes == null || arrivalMinutes == null) {
-    return null;
-  }
-
-  let durationMinutes = arrivalMinutes - departureMinutes;
-  if (durationMinutes < 0) {
-    durationMinutes += 24 * 60;
-  }
-
-  return durationMinutes > 0 ? durationMinutes : null;
-}
-
-function formatDuration(durationMinutes) {
-  if (!Number.isFinite(durationMinutes)) {
-    return "未知";
-  }
-
-  const hours = Math.floor(durationMinutes / 60);
-  const minutes = durationMinutes % 60;
-
-  if (hours === 0) {
-    return `${minutes}分钟`;
-  }
-
-  if (minutes === 0) {
-    return `${hours}小时`;
-  }
-
-  return `${hours}小时${minutes}分钟`;
-}
 
 function normalizeAirlineCodes(airlineCodes) {
   if (!Array.isArray(airlineCodes)) {
@@ -324,6 +278,18 @@ function normalizeAirlineCodes(airlineCodes) {
         .filter(Boolean)
     ),
   ];
+}
+
+function calcDuration(depTime, arrTime) {
+  const dep = new Date(depTime.replace(" ", "T"));
+  const arr = new Date(arrTime.replace(" ", "T"));
+  const diff = arr - dep;
+  if (!Number.isFinite(diff) || diff <= 0) return "未知";
+  const hours = Math.floor(diff / 3600000);
+  const minutes = Math.floor((diff % 3600000) / 60000);
+  if (hours === 0) return `${minutes}分钟`;
+  if (minutes === 0) return `${hours}小时`;
+  return `${hours}小时${minutes}分`;
 }
 
 function normalizeFlight(item, airlineMap, fieldMappings) {
@@ -348,6 +314,8 @@ function normalizeFlight(item, airlineMap, fieldMappings) {
   const flightNumber = findValueDeep(item, fieldMappings.flightNumber) || "未知航班编号";
   const departureTime = findValueDeep(item, fieldMappings.departureTime) || "未知";
   const arrivalTime = findValueDeep(item, fieldMappings.arrivalTime) || "未知";
+  const stop = item?.stop ?? null;
+  const duration = calcDuration(departureTime, arrivalTime);
 
   return {
     airline,
@@ -356,6 +324,8 @@ function normalizeFlight(item, airlineMap, fieldMappings) {
     departureTime,
     arrivalTime,
     price,
+    stop,
+    duration,
   };
 }
 
@@ -423,16 +393,10 @@ function getAllowedAirlineCodes(route) {
 
 function filterFlightsByPrice(flights, priceLimit, allowedAirlineCodes) {
   return flights.filter((flight) => {
-    const durationMinutes = calculateFlightDurationMinutes(
-      flight.departureTime,
-      flight.arrivalTime
-    );
-
     return (
+      flight.stop === 0 &&
       (!allowedAirlineCodes || allowedAirlineCodes.has(flight.airlineCode)) &&
-      flight.price < priceLimit &&
-      Number.isFinite(durationMinutes) &&
-      durationMinutes < 180
+      flight.price < priceLimit
     );
   });
 }
@@ -459,6 +423,7 @@ function renderHtmlTable(route, rows, priceLimit) {
         <td>${escapeHtml(row.flightNumber || "未知航班编号")}</td>
         <td>${escapeHtml(row.departureTime || "未知")}</td>
         <td>${escapeHtml(row.arrivalTime || "未知")}</td>
+        <td>${escapeHtml(row.duration || "未知")}</td>
         <td>${escapeHtml(row.price)}</td>
       </tr>`
     )
@@ -509,6 +474,7 @@ function renderHtmlTable(route, rows, priceLimit) {
           <th>航班编号</th>
           <th>出发时间</th>
           <th>到达时间</th>
+          <th>飞行时长</th>
           <th>价格</th>
         </tr>
       </thead>
@@ -621,23 +587,37 @@ function validateAppConfig(config) {
 }
 
 async function queryFlights(route, appConfig, airlineMap) {
-  const response = await axios.get(appConfig.request.url, {
-    params: {...route, ua: '090#qCQXC4X2X2LXPXi0XXXXXQkpOzuMj0jGfDnb3+GXAGBUfoPCcn0s+DyU3H79j00AH4QXa67MfG1940VVPvQXib2CqYlTP7xNXvXnh9TXXP73OzueGrrNHYVmr+hnLXj3HoDIh9k4aP73IzZeG2XPHYVy3KQiXiF7cso+ND/r0mgOFF/JNDIkjj5J+2CAkvQXiTaXksdXPaLiXXf8AfIw3vQXiXXXXXv='},
-    headers: appConfig.request.headers || {},
+  const ts = Date.now();
+  const callback = `jsonp${Math.floor(Math.random() * 1000)}`;
+
+  const params = {
+    _ksTS: `${ts}_999`,
+    callback,
+    tripType: 0,
+    depCity: route.depCity,
+    depCityName: route.depCityName,
+    arrCity: route.arrCity,
+    arrCityName: route.arrCityName,
+    depDate: route.depDate,
+    searchSource: 99,
+    needMemberPrice: true,
+    '_input_charset': 'utf-8',
+  };
+
+  const baseUrl = appConfig.request.url.split('?')[0];
+  const response = await axios.get(baseUrl, {
+    params,
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36',
+      'Referer': 'https://sjipiao.fliggy.com/',
+    },
     timeout: Number(appConfig.requestTimeoutMs ?? 20000),
     responseType: "text",
-    maxRedirects: 0,
-    validateStatus: (status) => status >= 200 && status < 400,
   });
-
-  if (response.status >= 300 && response.status < 400) {
-    const redirectTarget = response.headers.location || "unknown location";
-    throw new Error(`接口返回重定向 (${response.status})：${redirectTarget}`);
-  }
 
   const payload = unwrapResponsePayload(
     response.data,
-    appConfig.request.callbackName || null
+    callback
   );
 
   const flights = extractFlightList(payload, airlineMap, appConfig.response || {});
