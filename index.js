@@ -4,6 +4,9 @@ const axios = require("axios");
 
 const { sendMail } = require("./mailer");
 
+// 复制下面的链接，浏览器打开刷新，更新接口
+// https://sjipiao.fliggy.com/searchow/search.htm?_ksTS=1779968468253_159&callback=jsonp160&tripType=0&depCity=KMG&depCityName=%E6%98%86%E6%98%8E&arrCity=CAN&arrCityName=%E5%B9%BF%E5%B7%9E&depDate=2026-06-18&searchSource=99&sKey=&qid=&needMemberPrice=true&_input_charset=utf-8&ua=090%23qCQXDTX2X2XXPXi0XXXXXQkpOz7yT99GzDVlO%2Bg3AGBpfrxbhnU5%2BDEIIrg9H9hG3vQXi3e7PUXtXvXQsVW8ZxDiXXF2mp%2F9vQjBXvXvM%2BeJ9ldaKbHa9ECSU5VbImQiXXxlVf0IPaR3XvXP4aabUg0yzSvNXvXnh9TXXP73OzueGQiGHYVbk%2BhnOQp3HogAh9T4vY73I05eGrirHYVyGv%3D%3D&itemId=&openCb=false
+
 const APP_CONFIG_PATH = path.join(__dirname, "config.json");
 async function loadJson(filePath) {
   const content = await fs.readFile(filePath, "utf8");
