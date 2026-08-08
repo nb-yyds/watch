@@ -593,7 +593,7 @@ async function queryFlights(route, appConfig, airlineMap) {
     params,
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36',
-      'Referer': 'https://sjipiao.fliggy.com/',
+      'Referer': 'https://sjipiao.fliggy.com/flight_search_result.htm',
     },
     timeout: Number(appConfig.requestTimeoutMs ?? 20000),
     responseType: "text",
